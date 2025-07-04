@@ -498,4 +498,303 @@
                     return self.registration.showNotification('Daily Reflection Time', {
                         body: 'Time to reflect on your day! What was great and what was challenging?',
                         icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-                        badge: 'data:
+                        badge: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                        tag: 'daily-reminder',
+                        vibrate: [200, 100, 200],
+                        actions: [
+                            {
+                                action: 'open',
+                                title: 'Open App'
+                            },
+                            {
+                                action: 'close',
+                                title: 'Later'
+                            }
+                        ]
+                    });
+                }
+
+                self.addEventListener('notificationclick', (event) => {
+                    event.notification.close();
+                    if (event.action === 'open') {
+                        event.waitUntil(
+                            clients.openWindow('/')
+                        );
+                    }
+                });
+            `;
+            
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            return URL.createObjectURL(blob);
+        }
+
+        // Update app function
+        function updateApp() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then((registration) => {
+                    if (registration.waiting) {
+                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                });
+                window.location.reload();
+            }
+        }
+
+        // Online/Offline detection
+        window.addEventListener('online', () => {
+            document.getElementById('offlineIndicator').style.display = 'none';
+        });
+
+        window.addEventListener('offline', () => {
+            document.getElementById('offlineIndicator').style.display = 'block';
+        });
+
+        // Get today's key for localStorage
+        function getTodayKey() {
+            const today = new Date();
+            return `reflection_${today.getFullYear()}_${today.getMonth()}_${today.getDate()}`;
+        }
+
+        // Auto-save functionality
+        function autoSave() {
+            const great = document.getElementById('greatText').value;
+            const shit = document.getElementById('shitText').value;
+            
+            if (great || shit) {
+                const todayKey = getTodayKey();
+                const reflection = {
+                    date: new Date().toISOString(),
+                    great: great,
+                    shit: shit,
+                    autoSaved: true
+                };
+                localStorage.setItem(todayKey, JSON.stringify(reflection));
+                
+                // Show auto-save indicator
+                const indicator = document.getElementById('autoSaveIndicator');
+                indicator.classList.add('show');
+                clearTimeout(autoSaveTimeout);
+                autoSaveTimeout = setTimeout(() => {
+                    indicator.classList.remove('show');
+                }, 2000);
+            }
+        }
+
+        // Load today's reflection if it exists
+        function loadTodaysReflection() {
+            const todayKey = getTodayKey();
+            const saved = localStorage.getItem(todayKey);
+            
+            if (saved) {
+                const reflection = JSON.parse(saved);
+                document.getElementById('greatText').value = reflection.great || '';
+                document.getElementById('shitText').value = reflection.shit || '';
+            }
+        }
+
+        // Save reflection
+        function saveReflection() {
+            const great = document.getElementById('greatText').value.trim();
+            const shit = document.getElementById('shitText').value.trim();
+            
+            if (!great && !shit) {
+                alert('Please write something in at least one field!');
+                return;
+            }
+
+            const todayKey = getTodayKey();
+            const reflection = {
+                date: new Date().toISOString(),
+                great: great,
+                shit: shit,
+                autoSaved: false
+            };
+
+            localStorage.setItem(todayKey, JSON.stringify(reflection));
+            
+            // Show success message
+            const successMsg = document.getElementById('successMessage');
+            successMsg.style.display = 'block';
+            setTimeout(() => {
+                successMsg.style.display = 'none';
+            }, 3000);
+
+            // Refresh history
+            loadHistory();
+        }
+
+        // Share reflection
+        function shareReflection() {
+            const great = document.getElementById('greatText').value.trim();
+            const shit = document.getElementById('shitText').value.trim();
+            
+            if (!great && !shit) {
+                alert('Please write something to share!');
+                return;
+            }
+
+            const today = new Date().toLocaleDateString();
+            let shareText = `My Daily Reflection - ${today}\n\n`;
+            
+            if (great) {
+                shareText += `🌟 What was great:\n${great}\n\n`;
+            }
+            
+            if (shit) {
+                shareText += `💭 What was challenging:\n${shit}\n\n`;
+            }
+            
+            shareText += `#DailyReflection #Mindfulness`;
+
+            // Use Web Share API if available
+            if (navigator.share) {
+                navigator.share({
+                    title: 'My Daily Reflection',
+                    text: shareText
+                }).catch(err => {
+                    console.log('Error sharing:', err);
+                    fallbackShare(shareText);
+                });
+            } else {
+                fallbackShare(shareText);
+            }
+        }
+
+        // Fallback share method
+        function fallbackShare(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Reflection copied to clipboard!');
+                }).catch(() => {
+                    promptShare(text);
+                });
+            } else {
+                promptShare(text);
+            }
+        }
+
+        function promptShare(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('Reflection copied to clipboard!');
+        }
+
+        // Load reflection history
+        function loadHistory() {
+            const historyContainer = document.getElementById('historyContainer');
+            const reflections = [];
+
+            // Get all reflections from localStorage
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('reflection_')) {
+                    const reflection = JSON.parse(localStorage.getItem(key));
+                    reflections.push(reflection);
+                }
+            }
+
+            // Sort by date (newest first)
+            reflections.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // Display reflections
+            if (reflections.length === 0) {
+                historyContainer.innerHTML = '<p style="color: rgba(255,255,255,0.7); text-align: center;">No reflections yet. Start your first one above!</p>';
+                return;
+            }
+
+            historyContainer.innerHTML = reflections.map(reflection => {
+                const date = new Date(reflection.date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                const autoSavedLabel = reflection.autoSaved ? ' (auto-saved)' : '';
+
+                return `
+                    <div class="history-item">
+                        <div class="history-date">${date}${autoSavedLabel}</div>
+                        ${reflection.great ? `<div class="history-content"><span class="history-great">Great:</span> ${reflection.great}</div>` : ''}
+                        ${reflection.shit ? `<div class="history-content"><span class="history-shit">Challenging:</span> ${reflection.shit}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Enable notifications
+        function enableNotifications() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        document.getElementById('notificationSetup').style.display = 'none';
+                        scheduleNotification();
+                        
+                        // Register for background sync if supported
+                        if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+                            navigator.serviceWorker.ready.then(registration => {
+                                return registration.sync.register('daily-reminder');
+                            });
+                        }
+                    }
+                });
+            } else {
+                alert('Notifications are not supported in this browser');
+            }
+        }
+
+        // Schedule daily notification
+        function scheduleNotification() {
+            const now = new Date();
+            const evening = new Date();
+            evening.setHours(19, 0, 0, 0); // 7 PM
+
+            if (now > evening) {
+                evening.setDate(evening.getDate() + 1);
+            }
+
+            const timeUntilEvening = evening - now;
+            
+            setTimeout(() => {
+                if (Notification.permission === 'granted') {
+                    new Notification('Daily Reflection Time', {
+                        body: 'Time to reflect on your day! What was great and what was challenging?',
+                        icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                        tag: 'daily-reminder',
+                        vibrate: [200, 100, 200]
+                    });
+                }
+                // Schedule next day
+                scheduleNotification();
+            }, timeUntilEvening);
+        }
+
+        // Initialize app
+        function initApp() {
+            if (Notification.permission === 'granted') {
+                document.getElementById('notificationSetup').style.display = 'none';
+            }
+
+            // Auto-save functionality
+            document.getElementById('greatText').addEventListener('input', autoSave);
+            document.getElementById('shitText').addEventListener('input', autoSave);
+
+            // Load today's reflection and history
+            loadTodaysReflection();
+            loadHistory();
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initApp);
+
+        // Hide install prompt if already installed
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('pwaInstall').style.display = 'none';
+        });
+    </script>
+</body>
+</html>
