@@ -1,10 +1,11 @@
-const CACHE_NAME = 'daily-reflection-v2';
+const CACHE_NAME = 'daily-reflection-v3';
 const urlsToCache = [
     '/',
     '/index.html',
     '/manifest.json',
     '/style.css',
     '/app.js',
+    '/favicon.ico',
     '/icons/icon-192x192.png',
     '/icons/icon-512x512.png',
     '/icons/icon-maskable-192x192.png',
