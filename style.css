@@ -402,4 +402,90 @@ textarea:focus {
         padding: 6px 12px;
         font-size: 0.8em;
     }
+    
+    .backup-buttons {
+        flex-direction: column;
+    }
+}
+
+/* Backup section styles */
+.backup-section {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.backup-section h3 {
+    color: white;
+    margin-bottom: 8px;
+    font-size: 1.2em;
+}
+
+.backup-section p {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 15px;
+    font-size: 0.9em;
+}
+
+.backup-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-backup {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-backup:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-backup:active {
+    transform: translateY(0);
+}
+
+.backup-auto-indicator {
+    position: fixed;
+    top: 20px;
+    right: 80px;
+    background: rgba(76, 175, 80, 0.9);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+}
+
+.backup-auto-indicator.show {
+    opacity: 1;
+}
+
+@media (max-width: 480px) {
+    .backup-auto-indicator {
+        top: 10px;
+        right: 10px;
+        transform: translateY(35px);
+        padding: 6px 12px;
+        font-size: 0.8em;
+    }
 }
