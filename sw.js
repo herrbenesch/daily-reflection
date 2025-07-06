@@ -1,8 +1,15 @@
-const CACHE_NAME = 'daily-reflection-v1';
+const CACHE_NAME = 'daily-reflection-v3';
 const urlsToCache = [
     '/',
     '/index.html',
-    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K'
+    '/manifest.json',
+    '/style.css',
+    '/app.js',
+    '/favicon.ico',
+    '/icons/icon-192x192.png',
+    '/icons/icon-512x512.png',
+    '/icons/icon-maskable-192x192.png',
+    '/icons/icon-maskable-512x512.png'
 ];
 
 // Store notification scheduling data
@@ -47,6 +54,8 @@ self.addEventListener('message', (event) => {
     if (event.data.type === 'SETUP_NOTIFICATIONS') {
         const notificationTime = event.data.time || '19:00';
         scheduleNextNotification(notificationTime);
+    } else if (event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
     }
 });
 

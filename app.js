@@ -1,0 +1,423 @@
+let deferredPrompt;
+let autoSaveTimeout;
+
+// PWA Install functionality
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('pwaInstall').style.display = 'block';
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            document.getElementById('pwaInstall').style.display = 'none';
+        }
+        deferredPrompt = null;
+    }
+});
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then((registration) => {
+            console.log('SW registered: ', registration);
+            
+            // Check for updates
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        document.getElementById('updateAvailable').style.display = 'block';
+                    }
+                });
+            });
+            
+            // Register periodic background sync if supported
+            if ('periodicSync' in registration) {
+                registration.periodicSync.register('daily-reminder-periodic', {
+                    minInterval: 24 * 60 * 60 * 1000, // 24 hours
+                }).catch(err => {
+                    console.log('Periodic sync not supported:', err);
+                });
+            }
+            
+        }).catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+        });
+    });
+}
+
+// Update app function
+function updateApp() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((registration) => {
+            if (registration.waiting) {
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+        });
+        window.location.reload();
+    }
+}
+
+// Online/Offline detection
+window.addEventListener('online', () => {
+    document.getElementById('offlineIndicator').style.display = 'none';
+});
+
+window.addEventListener('offline', () => {
+    document.getElementById('offlineIndicator').style.display = 'block';
+});
+
+// Get today's key for localStorage
+function getTodayKey() {
+    const today = new Date();
+    return `reflection_${today.getFullYear()}_${today.getMonth()}_${today.getDate()}`;
+}
+
+// Auto-save functionality
+function autoSave() {
+    const great = document.getElementById('greatText').value;
+    const shit = document.getElementById('shitText').value;
+    
+    if (great || shit) {
+        const todayKey = getTodayKey();
+        const reflection = {
+            date: new Date().toISOString(),
+            great: great,
+            shit: shit,
+            autoSaved: true
+        };
+        localStorage.setItem(todayKey, JSON.stringify(reflection));
+        
+        // Show auto-save indicator
+        const indicator = document.getElementById('autoSaveIndicator');
+        indicator.classList.add('show');
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(() => {
+            indicator.classList.remove('show');
+        }, 2000);
+    }
+}
+
+// Load today's reflection if it exists
+function loadTodaysReflection() {
+    const todayKey = getTodayKey();
+    const saved = localStorage.getItem(todayKey);
+    
+    if (saved) {
+        const reflection = JSON.parse(saved);
+        document.getElementById('greatText').value = reflection.great || '';
+        document.getElementById('shitText').value = reflection.shit || '';
+    }
+}
+
+// Save reflection
+function saveReflection() {
+    const great = document.getElementById('greatText').value.trim();
+    const shit = document.getElementById('shitText').value.trim();
+    
+    if (!great && !shit) {
+        alert('Please write something in at least one field!');
+        return;
+    }
+
+    const todayKey = getTodayKey();
+    const reflection = {
+        date: new Date().toISOString(),
+        great: great,
+        shit: shit,
+        autoSaved: false
+    };
+
+    localStorage.setItem(todayKey, JSON.stringify(reflection));
+    
+    // Show success message
+    const successMsg = document.getElementById('successMessage');
+    successMsg.style.display = 'block';
+    setTimeout(() => {
+        successMsg.style.display = 'none';
+    }, 3000);
+
+    // Refresh history
+    loadHistory();
+}
+
+// Share reflection
+function shareReflection() {
+    const great = document.getElementById('greatText').value.trim();
+    const shit = document.getElementById('shitText').value.trim();
+    
+    if (!great && !shit) {
+        alert('Please write something to share!');
+        return;
+    }
+
+    const today = new Date().toLocaleDateString();
+    let shareText = `My Daily Reflection - ${today}\n\n`;
+    
+    if (great) {
+        shareText += `🌟 What was great:\n${great}\n\n`;
+    }
+    
+    if (shit) {
+        shareText += `💭 What was challenging:\n${shit}\n\n`;
+    }
+    
+    shareText += `#DailyReflection #Mindfulness`;
+
+    // Use Web Share API if available
+    if (navigator.share) {
+        navigator.share({
+            title: 'My Daily Reflection',
+            text: shareText
+        }).catch(err => {
+            console.log('Error sharing:', err);
+            fallbackShare(shareText);
+        });
+    } else {
+        fallbackShare(shareText);
+    }
+}
+
+// Fallback share method
+function fallbackShare(text) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Reflection copied to clipboard!');
+        }).catch(() => {
+            promptShare(text);
+        });
+    } else {
+        promptShare(text);
+    }
+}
+
+function promptShare(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    alert('Reflection copied to clipboard!');
+}
+
+// Load reflection history
+function loadHistory() {
+    const historyContainer = document.getElementById('historyContainer');
+    const reflections = [];
+
+    // Get all reflections from localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('reflection_')) {
+            const reflection = JSON.parse(localStorage.getItem(key));
+            reflections.push(reflection);
+        }
+    }
+
+    // Sort by date (newest first)
+    reflections.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Display reflections
+    if (reflections.length === 0) {
+        historyContainer.innerHTML = '<p style="color: rgba(255,255,255,0.7); text-align: center;">No reflections yet. Start your first one above!</p>';
+        return;
+    }
+
+    historyContainer.innerHTML = reflections.map(reflection => {
+        const date = new Date(reflection.date).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        const autoSavedLabel = reflection.autoSaved ? ' (auto-saved)' : '';
+
+        return `
+            <div class="history-item">
+                <div class="history-date">${date}${autoSavedLabel}</div>
+                ${reflection.great ? `<div class="history-content"><span class="history-great">Great:</span> ${reflection.great}</div>` : ''}
+                ${reflection.shit ? `<div class="history-content"><span class="history-shit">Challenging:</span> ${reflection.shit}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// Enable notifications
+function enableNotifications() {
+    if ('Notification' in window) {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                document.getElementById('notificationSetup').style.display = 'none';
+                
+                // Store notification preference
+                localStorage.setItem('notifications_enabled', 'true');
+                localStorage.setItem('notification_time', '19:00'); // 7 PM
+                
+                // Initialize notification scheduling through service worker
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        // Send message to service worker to set up notifications
+                        registration.active.postMessage({
+                            type: 'SETUP_NOTIFICATIONS',
+                            time: '19:00'
+                        });
+                        
+                        // Register for background sync if supported
+                        if ('sync' in window.ServiceWorkerRegistration.prototype) {
+                            return registration.sync.register('daily-reminder');
+                        }
+                    });
+                }
+                
+                // Fallback scheduling for immediate testing
+                scheduleNotification();
+            } else if (permission === 'denied') {
+                alert('Notifications have been blocked. Please enable them in your browser settings to receive daily reminders.');
+            }
+        });
+    } else {
+        alert('Notifications are not supported in this browser');
+    }
+}
+
+// Schedule daily notification
+function scheduleNotification() {
+    // This is now primarily a fallback method
+    // The main scheduling should be handled by the service worker
+    const now = new Date();
+    const evening = new Date();
+    evening.setHours(19, 0, 0, 0); // 7 PM
+
+    if (now > evening) {
+        evening.setDate(evening.getDate() + 1);
+    }
+
+    const timeUntilEvening = evening - now;
+    
+    // Store next notification time for service worker
+    localStorage.setItem('next_notification_time', evening.getTime().toString());
+    
+    // Only use setTimeout as a fallback for immediate testing
+    // Real persistent notifications should come from service worker
+    setTimeout(() => {
+        if (Notification.permission === 'granted') {
+            // Try to use service worker notification first
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification('Daily Reflection Time', {
+                        body: 'Time to reflect on your day! What was great and what was challenging?',
+                        icon: '/icons/icon-192x192.png',
+                        badge: '/icons/icon-192x192.png',
+                        tag: 'daily-reminder',
+                        vibrate: [200, 100, 200],
+                        requireInteraction: true,
+                        actions: [
+                            {
+                                action: 'open',
+                                title: 'Open App'
+                            },
+                            {
+                                action: 'close',
+                                title: 'Later'
+                            }
+                        ]
+                    });
+                }).catch(() => {
+                    // Fallback to regular notification
+                    new Notification('Daily Reflection Time', {
+                        body: 'Time to reflect on your day! What was great and what was challenging?',
+                        icon: '/icons/icon-192x192.png',
+                        tag: 'daily-reminder',
+                        vibrate: [200, 100, 200]
+                    });
+                });
+            } else {
+                // Fallback to regular notification
+                new Notification('Daily Reflection Time', {
+                    body: 'Time to reflect on your day! What was great and what was challenging?',
+                    icon: '/icons/icon-192x192.png',
+                    tag: 'daily-reminder',
+                    vibrate: [200, 100, 200]
+                });
+            }
+        }
+        // Schedule next day
+        scheduleNotification();
+    }, timeUntilEvening);
+}
+
+// Initialize app
+function initApp() {
+    // Check if notifications are enabled and schedule if needed
+    const notificationsEnabled = localStorage.getItem('notifications_enabled') === 'true';
+    if (notificationsEnabled && Notification.permission === 'granted') {
+        document.getElementById('notificationSetup').style.display = 'none';
+        
+        // Re-initialize notification scheduling on app load
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.active.postMessage({
+                    type: 'SETUP_NOTIFICATIONS',
+                    time: localStorage.getItem('notification_time') || '19:00'
+                });
+            });
+        }
+    }
+
+    // Auto-save functionality
+    document.getElementById('greatText').addEventListener('input', autoSave);
+    document.getElementById('shitText').addEventListener('input', autoSave);
+
+    // Load today's reflection and history
+    loadTodaysReflection();
+    loadHistory();
+}
+
+// Initialize when page loads
+window.addEventListener('load', initApp);
+
+// Hide install prompt if already installed
+window.addEventListener('appinstalled', () => {
+    document.getElementById('pwaInstall').style.display = 'none';
+});
+
+// Test notification function
+function testNotification() {
+    if (Notification.permission === 'granted') {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification('Daily Reflection Test', {
+                    body: 'This is a test notification. If you can see this, notifications are working!',
+                    icon: '/icons/icon-192x192.png',
+                    tag: 'test-notification',
+                    vibrate: [200, 100, 200],
+                    requireInteraction: true
+                });
+            }).catch(() => {
+                // Fallback to regular notification
+                new Notification('Daily Reflection Test', {
+                    body: 'This is a test notification. If you can see this, notifications are working!',
+                    icon: '/icons/icon-192x192.png',
+                    tag: 'test-notification',
+                    vibrate: [200, 100, 200]
+                });
+            });
+        } else {
+            // Fallback to regular notification
+            new Notification('Daily Reflection Test', {
+                body: 'This is a test notification. If you can see this, notifications are working!',
+                icon: '/icons/icon-192x192.png',
+                tag: 'test-notification',
+                vibrate: [200, 100, 200]
+            });
+        }
+    } else {
+        alert('Please enable notifications first by clicking the "Enable Notifications" button.');
+    }
+}
