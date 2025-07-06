@@ -370,7 +370,10 @@
         <div class="notification-setup" id="notificationSetup">
             <h3>Enable Evening Reminders</h3>
             <p>Get a gentle reminder each evening to reflect on your day</p>
-            <button class="btn-notification" onclick="enableNotifications()">Enable Notifications</button>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-notification" onclick="enableNotifications()">Enable Notifications</button>
+                <button class="btn-notification" onclick="testNotification()" style="opacity: 0.7;">Test Notification</button>
+            </div>
         </div>
 
         <div class="card">
@@ -426,7 +429,7 @@
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register(getServiceWorkerCode()).then((registration) => {
+                navigator.serviceWorker.register('/sw.js').then((registration) => {
                     console.log('SW registered: ', registration);
                     
                     // Check for updates
@@ -438,94 +441,20 @@
                             }
                         });
                     });
+                    
+                    // Register periodic background sync if supported
+                    if ('periodicSync' in registration) {
+                        registration.periodicSync.register('daily-reminder-periodic', {
+                            minInterval: 24 * 60 * 60 * 1000, // 24 hours
+                        }).catch(err => {
+                            console.log('Periodic sync not supported:', err);
+                        });
+                    }
+                    
                 }).catch((registrationError) => {
                     console.log('SW registration failed: ', registrationError);
                 });
             });
-        }
-
-        // Generate Service Worker code as data URL
-        function getServiceWorkerCode() {
-            const swCode = `
-                const CACHE_NAME = 'daily-reflection-v1';
-                const urlsToCache = [
-                    '/',
-                    '/index.html',
-                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K'
-                ];
-
-                self.addEventListener('install', (event) => {
-                    event.waitUntil(
-                        caches.open(CACHE_NAME)
-                            .then((cache) => cache.addAll(urlsToCache))
-                    );
-                });
-
-                self.addEventListener('fetch', (event) => {
-                    event.respondWith(
-                        caches.match(event.request)
-                            .then((response) => {
-                                if (response) {
-                                    return response;
-                                }
-                                return fetch(event.request);
-                            })
-                    );
-                });
-
-                self.addEventListener('activate', (event) => {
-                    event.waitUntil(
-                        caches.keys().then((cacheNames) => {
-                            return Promise.all(
-                                cacheNames.map((cacheName) => {
-                                    if (cacheName !== CACHE_NAME) {
-                                        return caches.delete(cacheName);
-                                    }
-                                })
-                            );
-                        })
-                    );
-                });
-
-                // Background sync for notifications
-                self.addEventListener('sync', (event) => {
-                    if (event.tag === 'daily-reminder') {
-                        event.waitUntil(sendDailyReminder());
-                    }
-                });
-
-                function sendDailyReminder() {
-                    return self.registration.showNotification('Daily Reflection Time', {
-                        body: 'Time to reflect on your day! What was great and what was challenging?',
-                        icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-                        badge: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-                        tag: 'daily-reminder',
-                        vibrate: [200, 100, 200],
-                        actions: [
-                            {
-                                action: 'open',
-                                title: 'Open App'
-                            },
-                            {
-                                action: 'close',
-                                title: 'Later'
-                            }
-                        ]
-                    });
-                }
-
-                self.addEventListener('notificationclick', (event) => {
-                    event.notification.close();
-                    if (event.action === 'open') {
-                        event.waitUntil(
-                            clients.openWindow('/')
-                        );
-                    }
-                });
-            `;
-            
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            return URL.createObjectURL(blob);
         }
 
         // Update app function
@@ -732,14 +661,31 @@
                 Notification.requestPermission().then(permission => {
                     if (permission === 'granted') {
                         document.getElementById('notificationSetup').style.display = 'none';
-                        scheduleNotification();
                         
-                        // Register for background sync if supported
-                        if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+                        // Store notification preference
+                        localStorage.setItem('notifications_enabled', 'true');
+                        localStorage.setItem('notification_time', '19:00'); // 7 PM
+                        
+                        // Initialize notification scheduling through service worker
+                        if ('serviceWorker' in navigator) {
                             navigator.serviceWorker.ready.then(registration => {
-                                return registration.sync.register('daily-reminder');
+                                // Send message to service worker to set up notifications
+                                registration.active.postMessage({
+                                    type: 'SETUP_NOTIFICATIONS',
+                                    time: '19:00'
+                                });
+                                
+                                // Register for background sync if supported
+                                if ('sync' in window.ServiceWorkerRegistration.prototype) {
+                                    return registration.sync.register('daily-reminder');
+                                }
                             });
                         }
+                        
+                        // Fallback scheduling for immediate testing
+                        scheduleNotification();
+                    } else if (permission === 'denied') {
+                        alert('Notifications have been blocked. Please enable them in your browser settings to receive daily reminders.');
                     }
                 });
             } else {
@@ -749,6 +695,8 @@
 
         // Schedule daily notification
         function scheduleNotification() {
+            // This is now primarily a fallback method
+            // The main scheduling should be handled by the service worker
             const now = new Date();
             const evening = new Date();
             evening.setHours(19, 0, 0, 0); // 7 PM
@@ -759,14 +707,52 @@
 
             const timeUntilEvening = evening - now;
             
+            // Store next notification time for service worker
+            localStorage.setItem('next_notification_time', evening.getTime().toString());
+            
+            // Only use setTimeout as a fallback for immediate testing
+            // Real persistent notifications should come from service worker
             setTimeout(() => {
                 if (Notification.permission === 'granted') {
-                    new Notification('Daily Reflection Time', {
-                        body: 'Time to reflect on your day! What was great and what was challenging?',
-                        icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-                        tag: 'daily-reminder',
-                        vibrate: [200, 100, 200]
-                    });
+                    // Try to use service worker notification first
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready.then(registration => {
+                            registration.showNotification('Daily Reflection Time', {
+                                body: 'Time to reflect on your day! What was great and what was challenging?',
+                                icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                                badge: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                                tag: 'daily-reminder',
+                                vibrate: [200, 100, 200],
+                                requireInteraction: true,
+                                actions: [
+                                    {
+                                        action: 'open',
+                                        title: 'Open App'
+                                    },
+                                    {
+                                        action: 'close',
+                                        title: 'Later'
+                                    }
+                                ]
+                            });
+                        }).catch(() => {
+                            // Fallback to regular notification
+                            new Notification('Daily Reflection Time', {
+                                body: 'Time to reflect on your day! What was great and what was challenging?',
+                                icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                                tag: 'daily-reminder',
+                                vibrate: [200, 100, 200]
+                            });
+                        });
+                    } else {
+                        // Fallback to regular notification
+                        new Notification('Daily Reflection Time', {
+                            body: 'Time to reflect on your day! What was great and what was challenging?',
+                            icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                            tag: 'daily-reminder',
+                            vibrate: [200, 100, 200]
+                        });
+                    }
                 }
                 // Schedule next day
                 scheduleNotification();
@@ -775,8 +761,20 @@
 
         // Initialize app
         function initApp() {
-            if (Notification.permission === 'granted') {
+            // Check if notifications are enabled and schedule if needed
+            const notificationsEnabled = localStorage.getItem('notifications_enabled') === 'true';
+            if (notificationsEnabled && Notification.permission === 'granted') {
                 document.getElementById('notificationSetup').style.display = 'none';
+                
+                // Re-initialize notification scheduling on app load
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        registration.active.postMessage({
+                            type: 'SETUP_NOTIFICATIONS',
+                            time: localStorage.getItem('notification_time') || '19:00'
+                        });
+                    });
+                }
             }
 
             // Auto-save functionality
@@ -795,6 +793,41 @@
         window.addEventListener('appinstalled', () => {
             document.getElementById('pwaInstall').style.display = 'none';
         });
+
+        // Test notification function
+        function testNotification() {
+            if (Notification.permission === 'granted') {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        registration.showNotification('Daily Reflection Test', {
+                            body: 'This is a test notification. If you can see this, notifications are working!',
+                            icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                            tag: 'test-notification',
+                            vibrate: [200, 100, 200],
+                            requireInteraction: true
+                        });
+                    }).catch(() => {
+                        // Fallback to regular notification
+                        new Notification('Daily Reflection Test', {
+                            body: 'This is a test notification. If you can see this, notifications are working!',
+                            icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                            tag: 'test-notification',
+                            vibrate: [200, 100, 200]
+                        });
+                    });
+                } else {
+                    // Fallback to regular notification
+                    new Notification('Daily Reflection Test', {
+                        body: 'This is a test notification. If you can see this, notifications are working!',
+                        icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8cGF0aCBkPSJNMTYgOEwxNy40NSAxNi4zNUwyNiAxOEwxNy40NSAyNS42NUwxNiAzNEwxNC41NSAyNS42NUw2IDE4TDE0LjU1IDE2LjM1TDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                        tag: 'test-notification',
+                        vibrate: [200, 100, 200]
+                    });
+                }
+            } else {
+                alert('Please enable notifications first by clicking the "Enable Notifications" button.');
+            }
+        }
     </script>
 </body>
 </html>
