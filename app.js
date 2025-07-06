@@ -134,6 +134,9 @@ function saveReflection() {
 
     localStorage.setItem(todayKey, JSON.stringify(reflection));
     
+    // Auto-backup after save
+    autoBackup();
+    
     // Show success message
     const successMsg = document.getElementById('successMessage');
     successMsg.style.display = 'block';
@@ -541,5 +544,239 @@ function testNotification() {
         }
     } else {
         alert('Please enable notifications first by clicking the "Enable Notifications" button.');
+    }
+}
+
+// Backup functionality
+function createBackup() {
+    const reflections = [];
+    const settings = {};
+    
+    // Get all reflections from localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('reflection_')) {
+            const reflection = JSON.parse(localStorage.getItem(key));
+            reflections.push(reflection);
+        }
+    }
+    
+    // Get app settings
+    settings.notifications_enabled = localStorage.getItem('notifications_enabled');
+    settings.notification_time = localStorage.getItem('notification_time');
+    settings.next_notification_time = localStorage.getItem('next_notification_time');
+    
+    const backupData = {
+        version: '1.0',
+        created: new Date().toISOString(),
+        reflections: reflections,
+        settings: settings,
+        totalCount: reflections.length
+    };
+    
+    return backupData;
+}
+
+function exportBackup() {
+    try {
+        const backupData = createBackup();
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `daily-reflection-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showMessage('Backup created successfully! 📁', 'success');
+    } catch (error) {
+        console.error('Error creating backup:', error);
+        showMessage('Error creating backup. Please try again.', 'error');
+    }
+}
+
+function shareBackup() {
+    try {
+        const backupData = createBackup();
+        const backupText = JSON.stringify(backupData, null, 2);
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Daily Reflection Backup',
+                text: 'My daily reflection backup data',
+                files: [new File([backupText], `daily-reflection-backup-${new Date().toISOString().split('T')[0]}.json`, {
+                    type: 'application/json'
+                })]
+            }).catch(err => {
+                console.log('Error sharing backup:', err);
+                // Fallback to clipboard
+                fallbackShareBackup(backupText);
+            });
+        } else {
+            fallbackShareBackup(backupText);
+        }
+    } catch (error) {
+        console.error('Error sharing backup:', error);
+        showMessage('Error sharing backup. Please try again.', 'error');
+    }
+}
+
+function fallbackShareBackup(backupText) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(backupText).then(() => {
+            showMessage('Backup copied to clipboard! You can paste it into a text file.', 'success');
+        }).catch(() => {
+            showMessage('Please manually copy your backup data from the download.', 'info');
+            exportBackup();
+        });
+    } else {
+        showMessage('Please use the download backup option.', 'info');
+        exportBackup();
+    }
+}
+
+function importBackup() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const backupData = JSON.parse(e.target.result);
+                
+                // Validate backup data
+                if (!backupData.version || !backupData.reflections || !Array.isArray(backupData.reflections)) {
+                    throw new Error('Invalid backup file format');
+                }
+                
+                // Confirm import
+                const confirmMsg = `This will import ${backupData.reflections.length} reflections from ${new Date(backupData.created).toLocaleDateString()}. This may overwrite existing data. Continue?`;
+                
+                if (confirm(confirmMsg)) {
+                    restoreFromBackup(backupData);
+                }
+            } catch (error) {
+                console.error('Error importing backup:', error);
+                showMessage('Error importing backup. Please check the file format.', 'error');
+            }
+        };
+        
+        reader.readAsText(file);
+    };
+    
+    input.click();
+}
+
+function restoreFromBackup(backupData) {
+    try {
+        let importedCount = 0;
+        
+        // Import reflections
+        backupData.reflections.forEach(reflection => {
+            const date = new Date(reflection.date);
+            const key = `reflection_${date.getFullYear()}_${date.getMonth()}_${date.getDate()}`;
+            
+            // Check if reflection already exists
+            const existing = localStorage.getItem(key);
+            if (!existing || confirm(`A reflection for ${date.toLocaleDateString()} already exists. Overwrite it?`)) {
+                localStorage.setItem(key, JSON.stringify(reflection));
+                importedCount++;
+            }
+        });
+        
+        // Import settings if they exist
+        if (backupData.settings) {
+            Object.entries(backupData.settings).forEach(([key, value]) => {
+                if (value !== null && value !== undefined) {
+                    localStorage.setItem(key, value);
+                }
+            });
+        }
+        
+        // Refresh the display
+        loadTodaysReflection();
+        loadHistory();
+        
+        showMessage(`Successfully imported ${importedCount} reflections! 🎉`, 'success');
+    } catch (error) {
+        console.error('Error restoring backup:', error);
+        showMessage('Error restoring backup. Please try again.', 'error');
+    }
+}
+
+function showMessage(message, type = 'info') {
+    const existingMessage = document.querySelector('.backup-message');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `backup-message ${type}`;
+    messageDiv.textContent = message;
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${type === 'error' ? '#ff6b6b' : type === 'success' ? '#4CAF50' : '#667eea'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: 600;
+        z-index: 10000;
+        max-width: 80%;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    
+    document.body.appendChild(messageDiv);
+    
+    setTimeout(() => {
+        messageDiv.remove();
+    }, 5000);
+}
+
+// Auto-backup functionality
+function autoBackup() {
+    try {
+        const backupData = createBackup();
+        const backupKey = `auto_backup_${new Date().toISOString().split('T')[0]}`;
+        
+        // Store in localStorage as a backup (limited but immediate)
+        localStorage.setItem(backupKey, JSON.stringify(backupData));
+        
+        // Clean up old auto-backups (keep last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('auto_backup_')) {
+                const backupDate = key.replace('auto_backup_', '');
+                if (new Date(backupDate) < sevenDaysAgo) {
+                    localStorage.removeItem(key);
+                }
+            }
+        }
+        
+        // Show subtle indication that backup was created
+        const indicator = document.querySelector('.backup-auto-indicator');
+        if (indicator) {
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+        }
+        
+    } catch (error) {
+        console.error('Auto-backup failed:', error);
     }
 }

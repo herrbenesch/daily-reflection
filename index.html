@@ -72,6 +72,16 @@
             <button class="btn btn-share" onclick="shareReflection()">Share</button>
         </div>
 
+        <div class="backup-section">
+            <h3>💾 Backup & Sync</h3>
+            <p>Keep your reflections safe with automatic backups</p>
+            <div class="backup-buttons">
+                <button class="btn btn-backup" onclick="exportBackup()">Download Backup</button>
+                <button class="btn btn-backup" onclick="shareBackup()">Share Backup</button>
+                <button class="btn btn-backup" onclick="importBackup()">Import Backup</button>
+            </div>
+        </div>
+
         <div id="successMessage" class="success-message" style="display: none;">
             Reflection saved! 🌟
         </div>
@@ -83,6 +93,9 @@
 
         <!-- Auto-save indicator -->
         <div class="auto-save-indicator" id="autoSaveIndicator">Auto-saved</div>
+        
+        <!-- Auto-backup indicator -->
+        <div class="backup-auto-indicator">Backed up</div>
     </div>
 
     <!-- JavaScript -->
