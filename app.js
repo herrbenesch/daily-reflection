@@ -205,6 +205,117 @@ function promptShare(text) {
     alert('Reflection copied to clipboard!');
 }
 
+// Delete reflection
+function deleteReflection(reflectionDate) {
+    if (confirm('Are you sure you want to delete this reflection? This action cannot be undone.')) {
+        // Find the localStorage key for this reflection
+        const date = new Date(reflectionDate);
+        const key = `reflection_${date.getFullYear()}_${date.getMonth()}_${date.getDate()}`;
+        
+        // Remove from localStorage
+        localStorage.removeItem(key);
+        
+        // Refresh the history display
+        loadHistory();
+        
+        // Show success message
+        const successMsg = document.getElementById('successMessage');
+        if (successMsg) {
+            successMsg.textContent = 'Reflection deleted successfully! 🗑️';
+            successMsg.style.display = 'block';
+            setTimeout(() => {
+                successMsg.style.display = 'none';
+                successMsg.textContent = 'Reflection saved! 🌟'; // Reset to original message
+            }, 3000);
+        }
+    }
+}
+
+// Handle swipe gestures for mobile deletion
+function handleSwipeGesture(element, reflectionDate) {
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
+    let threshold = 100; // Minimum distance for swipe detection
+    
+    element.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        isDragging = true;
+        element.style.transition = 'none';
+    });
+    
+    element.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        
+        currentX = e.touches[0].clientX;
+        const deltaX = currentX - startX;
+        
+        // Only allow left swipe (negative deltaX)
+        if (deltaX < 0) {
+            element.style.transform = `translateX(${Math.max(deltaX, -threshold * 2)}px)`;
+            element.style.background = deltaX < -threshold ? 'rgba(255, 107, 107, 0.2)' : 'rgba(255, 255, 255, 0.9)';
+        }
+    });
+    
+    element.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        
+        const deltaX = currentX - startX;
+        element.style.transition = 'transform 0.3s ease, background 0.3s ease';
+        
+        if (deltaX < -threshold) {
+            // Swipe left detected - show delete confirmation
+            deleteReflection(reflectionDate);
+        }
+        
+        // Reset position
+        element.style.transform = 'translateX(0)';
+        element.style.background = 'rgba(255, 255, 255, 0.9)';
+        isDragging = false;
+    });
+}
+
+// Handle context menu for desktop
+function handleContextMenu(element, reflectionDate) {
+    element.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        
+        // Remove any existing context menu
+        const existingMenu = document.querySelector('.context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+        
+        // Create context menu
+        const contextMenu = document.createElement('div');
+        contextMenu.className = 'context-menu';
+        contextMenu.innerHTML = `
+            <div class="context-menu-item" onclick="deleteReflection('${reflectionDate}'); this.parentElement.remove();">
+                🗑️ Delete Reflection
+            </div>
+            <div class="context-menu-item" onclick="this.parentElement.remove();">
+                ✕ Cancel
+            </div>
+        `;
+        
+        // Position the menu
+        contextMenu.style.left = e.pageX + 'px';
+        contextMenu.style.top = e.pageY + 'px';
+        
+        document.body.appendChild(contextMenu);
+        
+        // Remove menu when clicking elsewhere
+        setTimeout(() => {
+            document.addEventListener('click', function removeMenu(e) {
+                if (!contextMenu.contains(e.target)) {
+                    contextMenu.remove();
+                    document.removeEventListener('click', removeMenu);
+                }
+            });
+        }, 100);
+    });
+}
+
 // Load reflection history
 function loadHistory() {
     const historyContainer = document.getElementById('historyContainer');
@@ -239,13 +350,24 @@ function loadHistory() {
         const autoSavedLabel = reflection.autoSaved ? ' (auto-saved)' : '';
 
         return `
-            <div class="history-item">
-                <div class="history-date">${date}${autoSavedLabel}</div>
+            <div class="history-item" data-date="${reflection.date}">
+                <div class="history-header">
+                    <div class="history-date">${date}${autoSavedLabel}</div>
+                    <button class="delete-btn" onclick="deleteReflection('${reflection.date}')" title="Delete this reflection">🗑️</button>
+                </div>
                 ${reflection.great ? `<div class="history-content"><span class="history-great">Great:</span> ${reflection.great}</div>` : ''}
                 ${reflection.shit ? `<div class="history-content"><span class="history-shit">Challenging:</span> ${reflection.shit}</div>` : ''}
+                <div class="swipe-hint">💡 Swipe left to delete on mobile, right-click on desktop</div>
             </div>
         `;
     }).join('');
+    
+    // Add swipe and context menu handlers to each history item
+    document.querySelectorAll('.history-item').forEach(item => {
+        const reflectionDate = item.getAttribute('data-date');
+        handleSwipeGesture(item, reflectionDate);
+        handleContextMenu(item, reflectionDate);
+    });
 }
 
 // Enable notifications
