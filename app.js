@@ -319,6 +319,85 @@ function handleContextMenu(element, reflectionDate) {
     });
 }
 
+// Simple markdown parser for basic formatting
+function parseMarkdown(text) {
+    if (!text) return '';
+    
+    // Process line by line to handle lists and blockquotes properly
+    const lines = text.split('\n');
+    const processedLines = [];
+    let inList = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        
+        // Handle lists
+        if (line.trim().startsWith('- ')) {
+            if (!inList) {
+                processedLines.push('<ul>');
+                inList = true;
+            }
+            const listItem = line.trim().substring(2);
+            processedLines.push(`<li>${processInlineMarkdown(listItem)}</li>`);
+        } else if (line.trim().startsWith('1. ') || /^\d+\. /.test(line.trim())) {
+            if (!inList) {
+                processedLines.push('<ol>');
+                inList = true;
+            }
+            const listItem = line.trim().replace(/^\d+\. /, '');
+            processedLines.push(`<li>${processInlineMarkdown(listItem)}</li>`);
+        } else {
+            // Close list if we were in one
+            if (inList) {
+                const lastProcessed = processedLines[processedLines.length - 1];
+                if (lastProcessed && lastProcessed.includes('<li>')) {
+                    // Determine if it was ul or ol
+                    const listType = processedLines.find(l => l === '<ul>' || l === '<ol>');
+                    processedLines.push(listType === '<ul>' ? '</ul>' : '</ol>');
+                }
+                inList = false;
+            }
+            
+            // Handle blockquotes
+            if (line.trim().startsWith('> ')) {
+                const quotedText = line.trim().substring(2);
+                processedLines.push(`<blockquote>${processInlineMarkdown(quotedText)}</blockquote>`);
+            } else if (line.trim() === '') {
+                // Empty line
+                processedLines.push('<br>');
+            } else {
+                // Regular text - escape HTML first, then process inline markdown
+                const escapedLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                processedLines.push(processInlineMarkdown(escapedLine));
+            }
+        }
+    }
+    
+    // Close any remaining list
+    if (inList) {
+        const lastProcessed = processedLines[processedLines.length - 1];
+        if (lastProcessed && lastProcessed.includes('<li>')) {
+            const listType = processedLines.find(l => l === '<ul>' || l === '<ol>');
+            processedLines.push(listType === '<ul>' ? '</ul>' : '</ol>');
+        }
+    }
+    
+    return processedLines.join('\n');
+}
+
+// Process inline markdown (bold, italic)
+function processInlineMarkdown(text) {
+    // Bold: **text** or __text__
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/__(.*?)__/g, '<strong>$1</strong>');
+    
+    // Italic: *text* or _text_ (but avoid conflicts with bold)
+    text = text.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+    text = text.replace(/_([^_]+?)_/g, '<em>$1</em>');
+    
+    return text;
+}
+
 // Load reflection history
 function loadHistory() {
     const historyContainer = document.getElementById('historyContainer');
@@ -358,8 +437,8 @@ function loadHistory() {
                     <div class="history-date">${date}${autoSavedLabel}</div>
                     <button class="delete-btn" onclick="deleteReflection('${reflection.date}')" title="Delete this reflection">🗑️</button>
                 </div>
-                ${reflection.great ? `<div class="history-content"><span class="history-great">Great:</span> ${reflection.great}</div>` : ''}
-                ${reflection.shit ? `<div class="history-content"><span class="history-shit">Challenging:</span> ${reflection.shit}</div>` : ''}
+                ${reflection.great ? `<div class="history-content"><span class="history-great">Great:</span> <div class="markdown-content">${parseMarkdown(reflection.great)}</div></div>` : ''}
+                ${reflection.shit ? `<div class="history-content"><span class="history-shit">Challenging:</span> <div class="markdown-content">${parseMarkdown(reflection.shit)}</div></div>` : ''}
                 <div class="swipe-hint">💡 Swipe left to delete on mobile, right-click on desktop</div>
             </div>
         `;
