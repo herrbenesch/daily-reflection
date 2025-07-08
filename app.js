@@ -859,3 +859,31 @@ function autoBackup() {
         console.error('Auto-backup failed:', error);
     }
 }
+
+// Navigation and Menu Functions
+function toggleMenu() {
+    const burgerMenu = document.getElementById('burgerMenu');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+    
+    burgerMenu.classList.toggle('active');
+    dropdownMenu.classList.toggle('show');
+}
+
+function navigateToBackup() {
+    window.location.href = '/backup.html';
+}
+
+function navigateToHome() {
+    window.location.href = '/index.html';
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    const burgerMenu = document.getElementById('burgerMenu');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+    
+    if (burgerMenu && dropdownMenu && !burgerMenu.contains(event.target) && !dropdownMenu.contains(event.target)) {
+        burgerMenu.classList.remove('active');
+        dropdownMenu.classList.remove('show');
+    }
+});

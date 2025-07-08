@@ -26,8 +26,21 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Daily Reflection</h1>
+            <div class="header-top">
+                <h1>Daily Reflection</h1>
+                <button class="burger-menu" id="burgerMenu" onclick="toggleMenu()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
             <p>Take a moment to reflect on your day</p>
+            
+            <!-- Dropdown Menu -->
+            <div class="dropdown-menu" id="dropdownMenu">
+                <a href="/backup.html">💾 Backup & Sync</a>
+                <a href="/index.html">🏠 Home</a>
+            </div>
         </div>
 
         <!-- PWA Install Prompt -->
@@ -70,16 +83,6 @@
         <div class="buttons">
             <button class="btn btn-save" onclick="saveReflection()">Save Reflection</button>
             <button class="btn btn-share" onclick="shareReflection()">Share</button>
-        </div>
-
-        <div class="backup-section">
-            <h3>💾 Backup & Sync</h3>
-            <p>Keep your reflections safe with automatic backups</p>
-            <div class="backup-buttons">
-                <button class="btn btn-backup" onclick="exportBackup()">Download Backup</button>
-                <button class="btn btn-backup" onclick="shareBackup()">Share Backup</button>
-                <button class="btn btn-backup" onclick="importBackup()">Import Backup</button>
-            </div>
         </div>
 
         <div id="successMessage" class="success-message" style="display: none;">

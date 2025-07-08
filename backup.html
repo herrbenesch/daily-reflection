@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backup & Sync - Daily Reflection</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Daily Reflection">
+    <meta name="description" content="Backup and sync your daily reflections">
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192x192.png">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-top">
+                <h1>💾 Backup & Sync</h1>
+                <button class="burger-menu" id="burgerMenu" onclick="toggleMenu()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <p>Keep your reflections safe with automatic backups</p>
+            
+            <!-- Dropdown Menu -->
+            <div class="dropdown-menu" id="dropdownMenu">
+                <a href="/backup.html">💾 Backup & Sync</a>
+                <a href="/index.html">🏠 Home</a>
+            </div>
+        </div>
+
+        <!-- Back to Home button -->
+        <div class="navigation">
+            <button class="btn btn-secondary" onclick="window.location.href='/index.html'">← Back to Home</button>
+        </div>
+
+        <!-- Backup Options -->
+        <div class="backup-page-section">
+            <div class="card">
+                <h3>📱 Download Backup</h3>
+                <p>Save your reflections as a JSON file to your device</p>
+                <button class="btn btn-backup" onclick="exportBackup()">Download Backup</button>
+            </div>
+
+            <div class="card">
+                <h3>📤 Share Backup</h3>
+                <p>Share your backup file with other devices or cloud storage</p>
+                <button class="btn btn-backup" onclick="shareBackup()">Share Backup</button>
+            </div>
+
+            <div class="card">
+                <h3>📥 Import Backup</h3>
+                <p>Restore reflections from a previously saved backup file</p>
+                <button class="btn btn-backup" onclick="importBackup()">Import Backup</button>
+            </div>
+
+            <div class="card">
+                <h3>⚙️ Auto-Backup Status</h3>
+                <p>Your reflections are automatically backed up daily to local storage</p>
+                <div class="auto-backup-info">
+                    <span id="autoBackupStatus">Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auto-save indicator -->
+        <div class="auto-save-indicator" id="autoSaveIndicator">Auto-saved</div>
+        
+        <!-- Auto-backup indicator -->
+        <div class="backup-auto-indicator">Backed up</div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/app.js"></script>
+</body>
+</html>
