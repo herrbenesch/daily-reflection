@@ -611,6 +611,13 @@ function initApp() {
     // Set up date input to default to today
     setDateToToday();
     
+    // Add event listener for date changes
+    const dateInput = document.getElementById('reflectionDate');
+    if (dateInput) {
+        dateInput.addEventListener('change', onDateChange);
+        dateInput.addEventListener('input', onDateChange); // Additional listener for better compatibility
+    }
+    
     // Check if notifications are enabled and schedule if needed
     const notificationsEnabled = localStorage.getItem('notifications_enabled') === 'true';
     if (notificationsEnabled && Notification.permission === 'granted') {
