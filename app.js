@@ -71,10 +71,38 @@ window.addEventListener('offline', () => {
     document.getElementById('offlineIndicator').style.display = 'block';
 });
 
-// Get today's key for localStorage
-function getTodayKey() {
+// Get date key for localStorage (supports custom date)
+function getDateKey(date = null) {
+    const targetDate = date || new Date();
+    return `reflection_${targetDate.getFullYear()}_${targetDate.getMonth()}_${targetDate.getDate()}`;
+}
+
+// Get the currently selected date from the date input
+function getSelectedDate() {
+    const dateInput = document.getElementById('reflectionDate');
+    return dateInput.value ? new Date(dateInput.value + 'T00:00:00') : new Date();
+}
+
+// Set the date input to today (default behavior)
+function setDateToToday() {
+    const dateInput = document.getElementById('reflectionDate');
     const today = new Date();
-    return `reflection_${today.getFullYear()}_${today.getMonth()}_${today.getDate()}`;
+    const dateString = today.getFullYear() + '-' + 
+                      String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                      String(today.getDate()).padStart(2, '0');
+    dateInput.value = dateString;
+}
+
+// Handle date change event
+function onDateChange() {
+    // Save current reflection before switching dates
+    autoSave();
+    
+    // Load reflection for the selected date
+    loadReflectionForDate();
+    
+    // Update UI to show which date we're editing
+    updateDateDisplay();
 }
 
 // Auto-save functionality
@@ -83,14 +111,15 @@ function autoSave() {
     const shit = document.getElementById('shitText').value;
     
     if (great || shit) {
-        const todayKey = getTodayKey();
+        const selectedDate = getSelectedDate();
+        const dateKey = getDateKey(selectedDate);
         const reflection = {
-            date: new Date().toISOString(),
+            date: selectedDate.toISOString(),
             great: great,
             shit: shit,
             autoSaved: true
         };
-        localStorage.setItem(todayKey, JSON.stringify(reflection));
+        localStorage.setItem(dateKey, JSON.stringify(reflection));
         
         // Show auto-save indicator
         const indicator = document.getElementById('autoSaveIndicator');
@@ -102,16 +131,36 @@ function autoSave() {
     }
 }
 
-// Load today's reflection if it exists
-function loadTodaysReflection() {
-    const todayKey = getTodayKey();
-    const saved = localStorage.getItem(todayKey);
+// Load reflection for the currently selected date
+function loadReflectionForDate() {
+    const selectedDate = getSelectedDate();
+    const dateKey = getDateKey(selectedDate);
+    const saved = localStorage.getItem(dateKey);
     
     if (saved) {
         const reflection = JSON.parse(saved);
         document.getElementById('greatText').value = reflection.great || '';
         document.getElementById('shitText').value = reflection.shit || '';
+    } else {
+        // Clear the form if no reflection exists for this date
+        document.getElementById('greatText').value = '';
+        document.getElementById('shitText').value = '';
     }
+}
+
+// Load today's reflection if it exists (renamed for clarity)
+function loadTodaysReflection() {
+    loadReflectionForDate();
+}
+
+// Update the UI to show which date is being edited
+function updateDateDisplay() {
+    const selectedDate = getSelectedDate();
+    const today = new Date();
+    const isToday = selectedDate.toDateString() === today.toDateString();
+    
+    // You could add additional UI updates here if needed
+    // For now, the date input itself shows which date is selected
 }
 
 // Save reflection
@@ -124,15 +173,16 @@ function saveReflection() {
         return;
     }
 
-    const todayKey = getTodayKey();
+    const selectedDate = getSelectedDate();
+    const dateKey = getDateKey(selectedDate);
     const reflection = {
-        date: new Date().toISOString(),
+        date: selectedDate.toISOString(),
         great: great,
         shit: shit,
         autoSaved: false
     };
 
-    localStorage.setItem(todayKey, JSON.stringify(reflection));
+    localStorage.setItem(dateKey, JSON.stringify(reflection));
     
     // Auto-backup after save
     autoBackup();
@@ -558,6 +608,16 @@ function scheduleNotification() {
 
 // Initialize app
 function initApp() {
+    // Set up date input to default to today
+    setDateToToday();
+    
+    // Add event listener for date changes
+    const dateInput = document.getElementById('reflectionDate');
+    if (dateInput) {
+        dateInput.addEventListener('change', onDateChange);
+        dateInput.addEventListener('input', onDateChange); // Additional listener for better compatibility
+    }
+    
     // Check if notifications are enabled and schedule if needed
     const notificationsEnabled = localStorage.getItem('notifications_enabled') === 'true';
     if (notificationsEnabled && Notification.permission === 'granted') {
