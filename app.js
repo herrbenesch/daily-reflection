@@ -413,7 +413,7 @@ function updateEditModeUI(isEditing) {
     }
 }
 
-// Handle swipe gestures for mobile deletion
+// Handle swipe gestures for mobile edit and deletion
 function handleSwipeGesture(element, reflectionDate) {
     let startX = 0;
     let currentX = 0;
@@ -432,10 +432,19 @@ function handleSwipeGesture(element, reflectionDate) {
         currentX = e.touches[0].clientX;
         const deltaX = currentX - startX;
         
-        // Only allow left swipe (negative deltaX)
-        if (deltaX < 0) {
-            element.style.transform = `translateX(${Math.max(deltaX, -threshold * 2)}px)`;
-            element.style.background = deltaX < -threshold ? 'rgba(255, 107, 107, 0.2)' : 'rgba(255, 255, 255, 0.9)';
+        // Allow both left and right swipe
+        if (Math.abs(deltaX) > 10) {
+            element.style.transform = `translateX(${Math.max(Math.min(deltaX, threshold * 2), -threshold * 2)}px)`;
+            
+            if (deltaX > threshold) {
+                // Right swipe for edit
+                element.style.background = 'rgba(102, 126, 234, 0.2)';
+            } else if (deltaX < -threshold) {
+                // Left swipe for delete
+                element.style.background = 'rgba(255, 107, 107, 0.2)';
+            } else {
+                element.style.background = 'rgba(255, 255, 255, 0.9)';
+            }
         }
     });
     
@@ -445,8 +454,11 @@ function handleSwipeGesture(element, reflectionDate) {
         const deltaX = currentX - startX;
         element.style.transition = 'transform 0.3s ease, background 0.3s ease';
         
-        if (deltaX < -threshold) {
-            // Swipe left detected - show delete confirmation
+        if (deltaX > threshold) {
+            // Right swipe detected - edit reflection
+            editReflection(reflectionDate);
+        } else if (deltaX < -threshold) {
+            // Left swipe detected - delete reflection
             deleteReflection(reflectionDate);
         }
         
@@ -457,46 +469,7 @@ function handleSwipeGesture(element, reflectionDate) {
     });
 }
 
-// Handle context menu for desktop
-function handleContextMenu(element, reflectionDate) {
-    element.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        
-        // Remove any existing context menu
-        const existingMenu = document.querySelector('.context-menu');
-        if (existingMenu) {
-            existingMenu.remove();
-        }
-        
-        // Create context menu
-        const contextMenu = document.createElement('div');
-        contextMenu.className = 'context-menu';
-        contextMenu.innerHTML = `
-            <div class="context-menu-item" onclick="deleteReflection('${reflectionDate}'); this.parentElement.remove();">
-                🗑️ Delete Reflection
-            </div>
-            <div class="context-menu-item" onclick="this.parentElement.remove();">
-                ✕ Cancel
-            </div>
-        `;
-        
-        // Position the menu
-        contextMenu.style.left = e.pageX + 'px';
-        contextMenu.style.top = e.pageY + 'px';
-        
-        document.body.appendChild(contextMenu);
-        
-        // Remove menu when clicking elsewhere
-        setTimeout(() => {
-            document.addEventListener('click', function removeMenu(e) {
-                if (!contextMenu.contains(e.target)) {
-                    contextMenu.remove();
-                    document.removeEventListener('click', removeMenu);
-                }
-            });
-        }, 100);
-    });
-}
+// Context menu functionality removed as requested
 
 // Simple markdown parser for basic formatting
 function parseMarkdown(text) {
@@ -623,16 +596,15 @@ function loadHistory() {
                 </div>
                 ${reflection.great ? `<div class="history-content"><span class="history-great">Great:</span> <div class="markdown-content">${parseMarkdown(reflection.great)}</div></div>` : ''}
                 ${reflection.shit ? `<div class="history-content"><span class="history-shit">Challenging:</span> <div class="markdown-content">${parseMarkdown(reflection.shit)}</div></div>` : ''}
-                <div class="swipe-hint">💡 Use edit/delete buttons or swipe left to delete on mobile</div>
+                <div class="swipe-hint">💡 Use edit/delete buttons or swipe right to edit, left to delete</div>
             </div>
         `;
     }).join('');
     
-    // Add swipe and context menu handlers to each history item
+    // Add swipe handlers to each history item
     document.querySelectorAll('.history-item').forEach(item => {
         const reflectionDate = item.getAttribute('data-date');
         handleSwipeGesture(item, reflectionDate);
-        handleContextMenu(item, reflectionDate);
     });
 }
 
