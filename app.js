@@ -28,12 +28,23 @@ if ('serviceWorker' in navigator) {
             // Check for updates
             registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        document.getElementById('updateAvailable').style.display = 'block';
-                    }
-                });
+                if (newWorker) {
+                    newWorker.addEventListener('statechange', () => {
+                        // Only show update notification if there's already a controlling service worker
+                        // This prevents showing "update available" on first visit
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.log('New service worker installed, update available');
+                            document.getElementById('updateAvailable').style.display = 'block';
+                        }
+                    });
+                }
             });
+            
+            // Also check if there's already a waiting service worker
+            if (registration.waiting && navigator.serviceWorker.controller) {
+                console.log('Service worker is waiting, update available');
+                document.getElementById('updateAvailable').style.display = 'block';
+            }
             
             // Register periodic background sync if supported
             if ('periodicSync' in registration) {
@@ -55,10 +66,19 @@ function updateApp() {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then((registration) => {
             if (registration.waiting) {
+                // Send skip waiting message to the new service worker
                 registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                
+                // Listen for the new service worker to take control
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    // Reload the page once the new service worker takes control
+                    window.location.reload();
+                });
+            } else {
+                // No waiting worker, just reload
+                window.location.reload();
             }
         });
-        window.location.reload();
     }
 }
 

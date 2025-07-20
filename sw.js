@@ -24,15 +24,52 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    event.respondWith(
-        caches.match(event.request)
-            .then((response) => {
-                if (response) {
-                    return response;
-                }
-                return fetch(event.request);
-            })
-    );
+    // Use network-first strategy for the main HTML file to ensure updates are detected
+    if (event.request.mode === 'navigate' || 
+        event.request.destination === 'document' ||
+        event.request.url.endsWith('/') ||
+        event.request.url.endsWith('/index.html')) {
+        
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    // If we get a valid response, cache it and return
+                    if (response && response.status === 200) {
+                        const responseClone = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseClone);
+                        });
+                        return response;
+                    }
+                    // If network fails, fall back to cache
+                    return caches.match(event.request);
+                })
+                .catch(() => {
+                    // Network failed, try cache
+                    return caches.match(event.request);
+                })
+        );
+    } else {
+        // Use cache-first strategy for other resources (CSS, JS, images, etc.)
+        event.respondWith(
+            caches.match(event.request)
+                .then((response) => {
+                    if (response) {
+                        return response;
+                    }
+                    return fetch(event.request).then((response) => {
+                        // Cache successful responses
+                        if (response && response.status === 200) {
+                            const responseClone = response.clone();
+                            caches.open(CACHE_NAME).then((cache) => {
+                                cache.put(event.request, responseClone);
+                            });
+                        }
+                        return response;
+                    });
+                })
+        );
+    }
 });
 
 self.addEventListener('activate', (event) => {
@@ -40,11 +77,16 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
+                    // Delete any caches that don't match the current cache name
                     if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
+        }).then(() => {
+            // Take control of all pages immediately
+            return self.clients.claim();
         })
     );
 });
