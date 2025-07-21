@@ -1,5 +1,7 @@
 let deferredPrompt;
 let autoSaveTimeout;
+let currentEditingDate = null; // Track which reflection is being edited
+let hasUnsavedChanges = false; // Track unsaved changes
 
 // PWA Install functionality
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -115,8 +117,30 @@ function setDateToToday() {
 
 // Handle date change event
 function onDateChange() {
+    const newDate = getSelectedDate();
+    const newDateString = newDate.toISOString();
+    
+    // Check if we're switching away from an edited reflection with unsaved changes
+    if (currentEditingDate && hasUnsavedChanges && newDateString !== currentEditingDate) {
+        if (!confirm('You have unsaved changes in your current reflection. Do you want to discard them and switch to this date?')) {
+            // Revert the date input to the currently editing date
+            const editingDate = new Date(currentEditingDate);
+            const dateInput = document.getElementById('reflectionDate');
+            const dateString = editingDate.getFullYear() + '-' + 
+                              String(editingDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(editingDate.getDate()).padStart(2, '0');
+            dateInput.value = dateString;
+            return;
+        }
+    }
+    
     // Save current reflection before switching dates
     autoSave();
+    
+    // Clear edit mode when switching dates
+    currentEditingDate = null;
+    hasUnsavedChanges = false;
+    updateEditModeUI(false);
     
     // Load reflection for the selected date
     loadReflectionForDate();
@@ -140,6 +164,11 @@ function autoSave() {
             autoSaved: true
         };
         localStorage.setItem(dateKey, JSON.stringify(reflection));
+        
+        // Mark as having unsaved changes if in edit mode
+        if (currentEditingDate) {
+            hasUnsavedChanges = true;
+        }
         
         // Show auto-save indicator
         const indicator = document.getElementById('autoSaveIndicator');
@@ -204,11 +233,18 @@ function saveReflection() {
 
     localStorage.setItem(dateKey, JSON.stringify(reflection));
     
+    // Clear edit mode
+    const wasEditing = currentEditingDate !== null;
+    currentEditingDate = null;
+    hasUnsavedChanges = false;
+    updateEditModeUI(false);
+    
     // Auto-backup after save
     autoBackup();
     
     // Show success message
     const successMsg = document.getElementById('successMessage');
+    successMsg.textContent = wasEditing ? 'Reflection updated! 🌟' : 'Reflection saved! 🌟';
     successMsg.style.display = 'block';
     setTimeout(() => {
         successMsg.style.display = 'none';
@@ -278,6 +314,57 @@ function promptShare(text) {
     alert('Reflection copied to clipboard!');
 }
 
+// Edit reflection
+function editReflection(reflectionDate) {
+    // Check if there are unsaved changes in current edit
+    if (hasUnsavedChanges && currentEditingDate !== reflectionDate) {
+        if (!confirm('You have unsaved changes in your current reflection. Do you want to discard them and edit this reflection instead?')) {
+            return;
+        }
+    }
+    
+    // Set edit mode
+    currentEditingDate = reflectionDate;
+    hasUnsavedChanges = false;
+    
+    // Load the reflection data
+    const date = new Date(reflectionDate);
+    const key = `reflection_${date.getFullYear()}_${date.getMonth()}_${date.getDate()}`;
+    const saved = localStorage.getItem(key);
+    
+    if (saved) {
+        const reflection = JSON.parse(saved);
+        
+        // Set the date picker to this reflection's date
+        const dateInput = document.getElementById('reflectionDate');
+        const dateString = date.getFullYear() + '-' + 
+                          String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                          String(date.getDate()).padStart(2, '0');
+        dateInput.value = dateString;
+        
+        // Load the reflection content
+        document.getElementById('greatText').value = reflection.great || '';
+        document.getElementById('shitText').value = reflection.shit || '';
+        
+        // Scroll to top so user can see the form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Update UI to show edit mode
+        updateEditModeUI(true);
+        
+        // Show edit message
+        const successMsg = document.getElementById('successMessage');
+        if (successMsg) {
+            successMsg.textContent = 'Editing reflection - make your changes and save! ✏️';
+            successMsg.style.display = 'block';
+            setTimeout(() => {
+                successMsg.style.display = 'none';
+                successMsg.textContent = 'Reflection saved! 🌟'; // Reset to original message
+            }, 3000);
+        }
+    }
+}
+
 // Delete reflection
 function deleteReflection(reflectionDate) {
     if (confirm('Are you sure you want to delete this reflection? This action cannot be undone.')) {
@@ -287,6 +374,14 @@ function deleteReflection(reflectionDate) {
         
         // Remove from localStorage
         localStorage.removeItem(key);
+        
+        // Clear edit mode if deleting currently edited reflection
+        const editDate = new Date(reflectionDate);
+        if (currentEditingDate && new Date(currentEditingDate).getTime() === editDate.getTime()) {
+            currentEditingDate = null;
+            hasUnsavedChanges = false;
+            updateEditModeUI(false);
+        }
         
         // Refresh the history display
         loadHistory();
@@ -304,7 +399,21 @@ function deleteReflection(reflectionDate) {
     }
 }
 
-// Handle swipe gestures for mobile deletion
+// Update UI to show edit mode
+function updateEditModeUI(isEditing) {
+    const saveBtn = document.querySelector('.btn-save');
+    if (saveBtn) {
+        if (isEditing) {
+            saveBtn.textContent = 'Update Reflection';
+            saveBtn.classList.add('btn-update');
+        } else {
+            saveBtn.textContent = 'Save Reflection';
+            saveBtn.classList.remove('btn-update');
+        }
+    }
+}
+
+// Handle swipe gestures for mobile edit and deletion
 function handleSwipeGesture(element, reflectionDate) {
     let startX = 0;
     let currentX = 0;
@@ -323,10 +432,19 @@ function handleSwipeGesture(element, reflectionDate) {
         currentX = e.touches[0].clientX;
         const deltaX = currentX - startX;
         
-        // Only allow left swipe (negative deltaX)
-        if (deltaX < 0) {
-            element.style.transform = `translateX(${Math.max(deltaX, -threshold * 2)}px)`;
-            element.style.background = deltaX < -threshold ? 'rgba(255, 107, 107, 0.2)' : 'rgba(255, 255, 255, 0.9)';
+        // Allow both left and right swipe
+        if (Math.abs(deltaX) > 10) {
+            element.style.transform = `translateX(${Math.max(Math.min(deltaX, threshold * 2), -threshold * 2)}px)`;
+            
+            if (deltaX > threshold) {
+                // Right swipe for edit
+                element.style.background = 'rgba(102, 126, 234, 0.2)';
+            } else if (deltaX < -threshold) {
+                // Left swipe for delete
+                element.style.background = 'rgba(255, 107, 107, 0.2)';
+            } else {
+                element.style.background = 'rgba(255, 255, 255, 0.9)';
+            }
         }
     });
     
@@ -336,8 +454,11 @@ function handleSwipeGesture(element, reflectionDate) {
         const deltaX = currentX - startX;
         element.style.transition = 'transform 0.3s ease, background 0.3s ease';
         
-        if (deltaX < -threshold) {
-            // Swipe left detected - show delete confirmation
+        if (deltaX > threshold) {
+            // Right swipe detected - edit reflection
+            editReflection(reflectionDate);
+        } else if (deltaX < -threshold) {
+            // Left swipe detected - delete reflection
             deleteReflection(reflectionDate);
         }
         
@@ -348,46 +469,7 @@ function handleSwipeGesture(element, reflectionDate) {
     });
 }
 
-// Handle context menu for desktop
-function handleContextMenu(element, reflectionDate) {
-    element.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        
-        // Remove any existing context menu
-        const existingMenu = document.querySelector('.context-menu');
-        if (existingMenu) {
-            existingMenu.remove();
-        }
-        
-        // Create context menu
-        const contextMenu = document.createElement('div');
-        contextMenu.className = 'context-menu';
-        contextMenu.innerHTML = `
-            <div class="context-menu-item" onclick="deleteReflection('${reflectionDate}'); this.parentElement.remove();">
-                🗑️ Delete Reflection
-            </div>
-            <div class="context-menu-item" onclick="this.parentElement.remove();">
-                ✕ Cancel
-            </div>
-        `;
-        
-        // Position the menu
-        contextMenu.style.left = e.pageX + 'px';
-        contextMenu.style.top = e.pageY + 'px';
-        
-        document.body.appendChild(contextMenu);
-        
-        // Remove menu when clicking elsewhere
-        setTimeout(() => {
-            document.addEventListener('click', function removeMenu(e) {
-                if (!contextMenu.contains(e.target)) {
-                    contextMenu.remove();
-                    document.removeEventListener('click', removeMenu);
-                }
-            });
-        }, 100);
-    });
-}
+// Context menu functionality removed as requested
 
 // Simple markdown parser for basic formatting
 function parseMarkdown(text) {
@@ -500,25 +582,29 @@ function loadHistory() {
         });
 
         const autoSavedLabel = reflection.autoSaved ? ' (auto-saved)' : '';
+        const isCurrentlyEditing = currentEditingDate && new Date(currentEditingDate).getTime() === new Date(reflection.date).getTime();
+        const editingClass = isCurrentlyEditing ? ' editing' : '';
 
         return `
-            <div class="history-item" data-date="${reflection.date}">
+            <div class="history-item${editingClass}" data-date="${reflection.date}">
                 <div class="history-header">
-                    <div class="history-date">${date}${autoSavedLabel}</div>
-                    <button class="delete-btn" onclick="deleteReflection('${reflection.date}')" title="Delete this reflection">🗑️</button>
+                    <div class="history-date">${date}${autoSavedLabel}${isCurrentlyEditing ? ' (editing)' : ''}</div>
+                    <div class="history-actions">
+                        <button class="edit-btn" onclick="editReflection('${reflection.date}')" title="Edit this reflection">✏️</button>
+                        <button class="delete-btn" onclick="deleteReflection('${reflection.date}')" title="Delete this reflection">🗑️</button>
+                    </div>
                 </div>
                 ${reflection.great ? `<div class="history-content"><span class="history-great">Great:</span> <div class="markdown-content">${parseMarkdown(reflection.great)}</div></div>` : ''}
                 ${reflection.shit ? `<div class="history-content"><span class="history-shit">Challenging:</span> <div class="markdown-content">${parseMarkdown(reflection.shit)}</div></div>` : ''}
-                <div class="swipe-hint">💡 Swipe left to delete on mobile, right-click on desktop</div>
+                <div class="swipe-hint">💡 Use edit/delete buttons or swipe right to edit, left to delete</div>
             </div>
         `;
     }).join('');
     
-    // Add swipe and context menu handlers to each history item
+    // Add swipe handlers to each history item
     document.querySelectorAll('.history-item').forEach(item => {
         const reflectionDate = item.getAttribute('data-date');
         handleSwipeGesture(item, reflectionDate);
-        handleContextMenu(item, reflectionDate);
     });
 }
 
@@ -654,9 +740,16 @@ function initApp() {
         }
     }
 
-    // Auto-save functionality
-    document.getElementById('greatText').addEventListener('input', autoSave);
-    document.getElementById('shitText').addEventListener('input', autoSave);
+    // Auto-save functionality with change tracking
+    const trackChanges = () => {
+        if (currentEditingDate) {
+            hasUnsavedChanges = true;
+        }
+        autoSave();
+    };
+    
+    document.getElementById('greatText').addEventListener('input', trackChanges);
+    document.getElementById('shitText').addEventListener('input', trackChanges);
 
     // Load today's reflection and history
     loadTodaysReflection();
