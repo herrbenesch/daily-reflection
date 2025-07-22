@@ -2,6 +2,7 @@ let deferredPrompt;
 let autoSaveTimeout;
 let currentEditingDate = null; // Track which reflection is being edited
 let hasUnsavedChanges = false; // Track unsaved changes
+let previousDateValue = null; // Track the previous date input value
 
 // PWA Install functionality
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -105,6 +106,40 @@ function getSelectedDate() {
     return dateInput.value ? new Date(dateInput.value + 'T00:00:00') : new Date();
 }
 
+// Save current form content to the previous date (before date change)
+function saveToPreviousDate() {
+    const great = document.getElementById('greatText').value;
+    const shit = document.getElementById('shitText').value;
+    
+    // Only save if there's actual content and we know the previous date
+    if ((great || shit) && previousDateValue) {
+        const previousDate = new Date(previousDateValue + 'T00:00:00');
+        const dateKey = getDateKey(previousDate);
+        const reflection = {
+            date: previousDate.toISOString(),
+            great: great,
+            shit: shit,
+            autoSaved: true
+        };
+        localStorage.setItem(dateKey, JSON.stringify(reflection));
+    }
+}
+
+// Get the date that the current form content belongs to
+function getCurrentFormDate() {
+    // If we're editing a specific reflection, use that date
+    if (currentEditingDate) {
+        return new Date(currentEditingDate);
+    }
+    
+    // Otherwise, try to determine from the form's previous state
+    // For now, we'll use a simple approach: if there's content but no edit date,
+    // assume it belongs to today (or the previously selected date)
+    // This is a limitation but covers most use cases
+    const today = new Date();
+    return today;
+}
+
 // Set the date input to today (default behavior)
 function setDateToToday() {
     const dateInput = document.getElementById('reflectionDate');
@@ -134,8 +169,8 @@ function onDateChange() {
         }
     }
     
-    // Save current reflection before switching dates
-    autoSave();
+    // Save current reflection to the previous date before switching dates
+    saveToPreviousDate();
     
     // Clear edit mode when switching dates
     currentEditingDate = null;
@@ -147,6 +182,10 @@ function onDateChange() {
     
     // Update UI to show which date we're editing
     updateDateDisplay();
+    
+    // Update the previous date value for next time
+    const dateInput = document.getElementById('reflectionDate');
+    previousDateValue = dateInput.value;
 }
 
 // Auto-save functionality
@@ -341,6 +380,9 @@ function editReflection(reflectionDate) {
                           String(date.getMonth() + 1).padStart(2, '0') + '-' + 
                           String(date.getDate()).padStart(2, '0');
         dateInput.value = dateString;
+        
+        // Update the previous date value tracking
+        previousDateValue = dateString;
         
         // Load the reflection content
         document.getElementById('greatText').value = reflection.great || '';
@@ -717,8 +759,11 @@ function initApp() {
     // Set up date input to default to today
     setDateToToday();
     
-    // Add event listener for date changes
+    // Initialize previous date value tracking
     const dateInput = document.getElementById('reflectionDate');
+    previousDateValue = dateInput.value;
+    
+    // Add event listener for date changes
     if (dateInput) {
         dateInput.addEventListener('change', onDateChange);
         dateInput.addEventListener('input', onDateChange); // Additional listener for better compatibility
