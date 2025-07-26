@@ -8,7 +8,7 @@ A simple Progressive Web App for daily journaling and self-reflection.
 
 - **Daily prompts**: Reflect on what went well and what was challenging
 - **Works offline**: Install as a PWA for native app experience
-- **Auto-save**: Never lose your thoughts
+- **Form persistence**: Changes persist until you close the app
 - **History**: View, edit, and delete past reflections
 - **Backup**: Export/import your data
 - **Mobile-friendly**: Touch gestures and responsive design
@@ -63,8 +63,7 @@ Reflections are stored as:
 {
   date: "2025-07-26T00:00:00.000Z",
   great: "Positive reflection text",
-  shit: "Challenge reflection text",
-  autoSaved: false
+  shit: "Challenge reflection text"
 }
 ```
 
