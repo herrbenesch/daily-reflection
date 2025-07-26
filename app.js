@@ -480,15 +480,26 @@ function handleSwipeGesture(element, reflectionDate) {
     let currentX = 0;
     let isDragging = false;
     let threshold = 100; // Minimum distance for swipe detection
+    let swipeDelayTimer = null; // Timer for swipe activation delay
+    let isSwipeEnabled = false; // Flag to control when swipe detection is active
+    const swipeActivationDelay = 200; // Delay in milliseconds before swipe becomes active
     
     element.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
-        isDragging = true;
+        currentX = startX;
+        isDragging = true; // Don't start dragging immediately
+        isSwipeEnabled = false;
         element.style.transition = 'none';
+        
+        // Set a timer to enable swipe detection after a delay
+        swipeDelayTimer = setTimeout(() => {
+            isDragging = true;
+            isSwipeEnabled = true;
+        }, swipeActivationDelay);
     });
     
     element.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
+        if (!isSwipeEnabled || !isDragging) return;
         
         currentX = e.touches[0].clientX;
         const deltaX = currentX - startX;
@@ -510,23 +521,34 @@ function handleSwipeGesture(element, reflectionDate) {
     });
     
     element.addEventListener('touchend', (e) => {
-        if (!isDragging) return;
-        
-        const deltaX = currentX - startX;
-        element.style.transition = 'transform 0.3s ease, background 0.3s ease';
-        
-        if (deltaX > threshold) {
-            // Right swipe detected - edit reflection
-            editReflection(reflectionDate);
-        } else if (deltaX < -threshold) {
-            // Left swipe detected - delete reflection
-            deleteReflection(reflectionDate);
+        // Clear the delay timer if it's still running
+        if (swipeDelayTimer) {
+            clearTimeout(swipeDelayTimer);
+            swipeDelayTimer = null;
         }
         
-        // Reset position
+        // Only process swipe actions if swipe was actually enabled
+        if (isSwipeEnabled && isDragging) {
+            const deltaX = currentX - startX;
+            element.style.transition = 'transform 0.3s ease, background 0.3s ease';
+            
+            if (deltaX > threshold) {
+                // Right swipe detected - edit reflection
+                editReflection(reflectionDate);
+            } else if (deltaX < -threshold) {
+                // Left swipe detected - delete reflection
+                deleteReflection(reflectionDate);
+            }
+        } else {
+            // If swipe wasn't enabled, just reset without transitions for immediate response
+            element.style.transition = 'transform 0.1s ease, background 0.1s ease';
+        }
+        
+        // Reset position and state
         element.style.transform = 'translateX(0)';
         element.style.background = 'rgba(255, 255, 255, 0.9)';
         isDragging = false;
+        isSwipeEnabled = false;
     });
 }
 
