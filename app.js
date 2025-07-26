@@ -4,6 +4,10 @@ let currentEditingDate = null; // Track which reflection is being edited
 let hasUnsavedChanges = false; // Track unsaved changes
 let previousDateValue = null; // Track the previous date input value
 
+// Pagination variables
+let currentPage = 1;
+let itemsPerPage = 5;
+
 // PWA Install functionality
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -425,6 +429,9 @@ function deleteReflection(reflectionDate) {
             updateEditModeUI(false);
         }
         
+        // Reset pagination if needed before refreshing history
+        resetPaginationIfNeeded();
+        
         // Refresh the history display
         loadHistory();
         
@@ -615,7 +622,14 @@ function loadHistory() {
         return;
     }
 
-    historyContainer.innerHTML = reflections.map(reflection => {
+    // Calculate pagination
+    const totalPages = Math.ceil(reflections.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedReflections = reflections.slice(startIndex, endIndex);
+
+    // Generate reflection items HTML
+    const reflectionItems = paginatedReflections.map(reflection => {
         const date = new Date(reflection.date).toLocaleDateString('en-US', {
             weekday: 'long',
             year: 'numeric',
@@ -642,12 +656,73 @@ function loadHistory() {
             </div>
         `;
     }).join('');
+
+    // Generate pagination controls
+    const paginationHTML = totalPages > 1 ? `
+        <div class="pagination">
+            <button class="pagination-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                ← Previous
+            </button>
+            <span class="pagination-info">
+                Page ${currentPage} of ${totalPages} (${reflections.length} total)
+            </span>
+            <button class="pagination-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                Next →
+            </button>
+        </div>
+    ` : '';
+
+    // Set the container HTML
+    historyContainer.innerHTML = reflectionItems + paginationHTML;
     
     // Add swipe handlers to each history item
     document.querySelectorAll('.history-item').forEach(item => {
         const reflectionDate = item.getAttribute('data-date');
         handleSwipeGesture(item, reflectionDate);
     });
+}
+
+// Change page for pagination
+function changePage(newPage) {
+    const reflections = [];
+    
+    // Get all reflections from localStorage to calculate total pages
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('reflection_')) {
+            const reflection = JSON.parse(localStorage.getItem(key));
+            reflections.push(reflection);
+        }
+    }
+    
+    const totalPages = Math.ceil(reflections.length / itemsPerPage);
+    
+    // Validate the new page number
+    if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        loadHistory();
+    }
+}
+
+// Reset pagination when items are deleted
+function resetPaginationIfNeeded() {
+    const reflections = [];
+    
+    // Get all reflections from localStorage to calculate total pages
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('reflection_')) {
+            const reflection = JSON.parse(localStorage.getItem(key));
+            reflections.push(reflection);
+        }
+    }
+    
+    const totalPages = Math.ceil(reflections.length / itemsPerPage);
+    
+    // Reset to page 1 if current page is now invalid
+    if (currentPage > totalPages && totalPages > 0) {
+        currentPage = 1;
+    }
 }
 
 // Enable notifications
