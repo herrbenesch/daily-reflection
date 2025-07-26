@@ -483,6 +483,7 @@ function handleSwipeGesture(element, reflectionDate) {
     
     element.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
+        currentX = startX; // Initialize currentX to startX to prevent tap misinterpretation
         isDragging = true;
         element.style.transition = 'none';
     });
