@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-reflection-v11';
+const CACHE_NAME = 'daily-reflection-v12';
 const urlsToCache = [
     '/',
     '/index.html',
