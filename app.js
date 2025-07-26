@@ -49,6 +49,11 @@ if ('serviceWorker' in navigator) {
                 document.getElementById('updateAvailable').style.display = 'block';
             }
             
+            // Periodic update check - check every 60 seconds
+            setInterval(() => {
+                registration.update();
+            }, 60000);
+            
             // Register periodic background sync if supported
             if ('periodicSync' in registration) {
                 registration.periodicSync.register('daily-reminder-periodic', {
@@ -61,6 +66,12 @@ if ('serviceWorker' in navigator) {
         }).catch((registrationError) => {
             console.log('SW registration failed: ', registrationError);
         });
+        
+        // Listen for controller changes to detect when a new service worker takes control
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('Service worker controller changed, reloading page');
+            window.location.reload();
+        });
     });
 }
 
@@ -71,15 +82,16 @@ function updateApp() {
             if (registration.waiting) {
                 // Send skip waiting message to the new service worker
                 registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                
-                // Listen for the new service worker to take control
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    // Reload the page once the new service worker takes control
+                // The global controllerchange listener will handle the reload
+            } else {
+                // Force an update check
+                registration.update().then(() => {
+                    console.log('Update check completed');
+                }).catch((error) => {
+                    console.log('Update check failed:', error);
+                    // If update fails, just reload the page
                     window.location.reload();
                 });
-            } else {
-                // No waiting worker, just reload
-                window.location.reload();
             }
         });
     }

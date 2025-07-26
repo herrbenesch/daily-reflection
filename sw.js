@@ -21,6 +21,8 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => cache.addAll(urlsToCache))
     );
+    // Skip waiting to activate the new service worker immediately
+    self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
