@@ -1,5 +1,4 @@
 let deferredPrompt;
-let autoSaveTimeout;
 let currentEditingDate = null; // Track which reflection is being edited
 let hasUnsavedChanges = false; // Track unsaved changes
 let previousDateValue = null; // Track the previous date input value
@@ -134,8 +133,7 @@ function saveToPreviousDate() {
         const reflection = {
             date: previousDate.toISOString(),
             great: great,
-            shit: shit,
-            autoSaved: true
+            shit: shit
         };
         localStorage.setItem(dateKey, JSON.stringify(reflection));
     }
@@ -204,34 +202,23 @@ function onDateChange() {
     previousDateValue = dateInput.value;
 }
 
-// Auto-save functionality
-function autoSave() {
+// Save form state for persistence until reload
+function saveFormState() {
     const great = document.getElementById('greatText').value;
     const shit = document.getElementById('shitText').value;
+    const selectedDate = getSelectedDate();
     
-    if (great || shit) {
-        const selectedDate = getSelectedDate();
-        const dateKey = getDateKey(selectedDate);
-        const reflection = {
-            date: selectedDate.toISOString(),
-            great: great,
-            shit: shit,
-            autoSaved: true
-        };
-        localStorage.setItem(dateKey, JSON.stringify(reflection));
-        
-        // Mark as having unsaved changes if in edit mode
-        if (currentEditingDate) {
-            hasUnsavedChanges = true;
-        }
-        
-        // Show auto-save indicator
-        const indicator = document.getElementById('autoSaveIndicator');
-        indicator.classList.add('show');
-        clearTimeout(autoSaveTimeout);
-        autoSaveTimeout = setTimeout(() => {
-            indicator.classList.remove('show');
-        }, 2000);
+    // Save form state to sessionStorage (cleared on app close/reload)
+    sessionStorage.setItem('formState', JSON.stringify({
+        great: great,
+        shit: shit,
+        date: selectedDate.toISOString(),
+        editingDate: currentEditingDate
+    }));
+    
+    // Mark as having unsaved changes if in edit mode
+    if (currentEditingDate) {
+        hasUnsavedChanges = true;
     }
 }
 
@@ -252,9 +239,59 @@ function loadReflectionForDate() {
     }
 }
 
+// Restore form state from sessionStorage
+function restoreFormState() {
+    const savedState = sessionStorage.getItem('formState');
+    if (savedState) {
+        try {
+            const state = JSON.parse(savedState);
+            
+            // Only restore if there's meaningful content
+            if (state.great || state.shit) {
+                document.getElementById('greatText').value = state.great || '';
+                document.getElementById('shitText').value = state.shit || '';
+                
+                // Restore editing state if applicable
+                if (state.editingDate) {
+                    currentEditingDate = state.editingDate;
+                    hasUnsavedChanges = true;
+                    updateEditModeUI(true);
+                    
+                    // Set date picker to the editing date
+                    const editDate = new Date(state.editingDate);
+                    const dateInput = document.getElementById('reflectionDate');
+                    const dateString = editDate.getFullYear() + '-' + 
+                                      String(editDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                      String(editDate.getDate()).padStart(2, '0');
+                    dateInput.value = dateString;
+                    previousDateValue = dateString;
+                } else {
+                    // Restore date if not editing
+                    const stateDate = new Date(state.date);
+                    const dateInput = document.getElementById('reflectionDate');
+                    const dateString = stateDate.getFullYear() + '-' + 
+                                      String(stateDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                      String(stateDate.getDate()).padStart(2, '0');
+                    dateInput.value = dateString;
+                    previousDateValue = dateString;
+                }
+                
+                return true; // Indicate that state was restored
+            }
+        } catch (error) {
+            console.error('Error restoring form state:', error);
+            sessionStorage.removeItem('formState');
+        }
+    }
+    return false; // No state was restored
+}
+
 // Load today's reflection if it exists (renamed for clarity)
 function loadTodaysReflection() {
-    loadReflectionForDate();
+    // Only load if no form state was restored
+    if (!restoreFormState()) {
+        loadReflectionForDate();
+    }
 }
 
 // Update the UI to show which date is being edited
@@ -282,8 +319,7 @@ function saveReflection() {
     const reflection = {
         date: selectedDate.toISOString(),
         great: great,
-        shit: shit,
-        autoSaved: false
+        shit: shit
     };
 
     localStorage.setItem(dateKey, JSON.stringify(reflection));
@@ -671,14 +707,13 @@ function loadHistory() {
             day: 'numeric'
         });
 
-        const autoSavedLabel = reflection.autoSaved ? ' (auto-saved)' : '';
         const isCurrentlyEditing = currentEditingDate && new Date(currentEditingDate).getTime() === new Date(reflection.date).getTime();
         const editingClass = isCurrentlyEditing ? ' editing' : '';
 
         return `
             <div class="history-item${editingClass}" data-date="${reflection.date}">
                 <div class="history-header">
-                    <div class="history-date">${date}${autoSavedLabel}${isCurrentlyEditing ? ' (editing)' : ''}</div>
+                    <div class="history-date">${date}${isCurrentlyEditing ? ' (editing)' : ''}</div>
                     <div class="history-actions">
                         <button class="edit-btn" onclick="editReflection('${reflection.date}')" title="Edit this reflection">✏️</button>
                         <button class="delete-btn" onclick="deleteReflection('${reflection.date}')" title="Delete this reflection">🗑️</button>
@@ -894,16 +929,19 @@ function initApp() {
         }
     }
 
-    // Auto-save functionality with change tracking
+    // Form state persistence with change tracking
     const trackChanges = () => {
         if (currentEditingDate) {
             hasUnsavedChanges = true;
         }
-        autoSave();
+        saveFormState();
     };
     
     document.getElementById('greatText').addEventListener('input', trackChanges);
     document.getElementById('shitText').addEventListener('input', trackChanges);
+    
+    // Restore form state if it exists
+    restoreFormState();
 
     // Load today's reflection and history
     loadTodaysReflection();

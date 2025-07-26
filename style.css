@@ -581,24 +581,6 @@ textarea:focus {
     font-weight: 600;
 }
 
-.auto-save-indicator {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: rgba(255, 255, 255, 0.9);
-    color: #667eea;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.9em;
-    font-weight: 600;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 1000;
-}
-
-.auto-save-indicator.show {
-    opacity: 1;
-}
 
 @media (max-width: 480px) {
     .container {
@@ -617,12 +599,6 @@ textarea:focus {
         flex-direction: column;
     }
 
-    .auto-save-indicator {
-        top: 10px;
-        right: 10px;
-        padding: 6px 12px;
-        font-size: 0.8em;
-    }
     
     .backup-buttons {
         flex-direction: column;
