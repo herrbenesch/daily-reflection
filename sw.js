@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-reflection-v10';
+const CACHE_NAME = 'daily-reflection-v11';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -21,8 +21,7 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => cache.addAll(urlsToCache))
     );
-    // Skip waiting to activate the new service worker immediately
-    self.skipWaiting();
+    // Don't skip waiting automatically - let the main app control this
 });
 
 self.addEventListener('fetch', (event) => {
