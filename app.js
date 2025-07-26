@@ -898,10 +898,35 @@ function scheduleNotification() {
     }, timeUntilEvening);
 }
 
+// Get app version from service worker cache name
+function getAppVersion() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+            // Try to get version from service worker
+            if (registration.active) {
+                registration.active.postMessage({ type: 'GET_VERSION' });
+            }
+        });
+        
+        // Listen for version response
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data.type === 'VERSION_RESPONSE') {
+                const versionElement = document.getElementById('appVersion');
+                if (versionElement && event.data.version) {
+                    versionElement.textContent = event.data.version;
+                }
+            }
+        });
+    }
+}
+
 // Initialize app
 function initApp() {
     // Set up date input to default to today
     setDateToToday();
+    
+    // Get and display app version
+    getAppVersion();
     
     // Initialize previous date value tracking
     const dateInput = document.getElementById('reflectionDate');

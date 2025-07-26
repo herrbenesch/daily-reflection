@@ -99,6 +99,17 @@ self.addEventListener('message', (event) => {
         scheduleNextNotification(notificationTime);
     } else if (event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
+    } else if (event.data.type === 'GET_VERSION') {
+        // Extract version from cache name
+        const version = CACHE_NAME.replace('daily-reflection-', '');
+        event.ports[0]?.postMessage({ type: 'VERSION_RESPONSE', version: version });
+        
+        // Also broadcast to all clients
+        self.clients.matchAll().then(clients => {
+            clients.forEach(client => {
+                client.postMessage({ type: 'VERSION_RESPONSE', version: version });
+            });
+        });
     }
 });
 
