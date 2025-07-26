@@ -487,7 +487,7 @@ function handleSwipeGesture(element, reflectionDate) {
     element.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
         currentX = startX;
-        isDragging = false; // Don't start dragging immediately
+        isDragging = true; // Don't start dragging immediately
         isSwipeEnabled = false;
         element.style.transition = 'none';
         
