@@ -68,26 +68,26 @@ body {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 8px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
-    width: 30px;
-    height: 24px;
+    justify-content: space-between;
+    width: 24px;
+    height: 18px;
     z-index: 1001;
 }
 
 .burger-menu span {
     display: block;
-    height: 3px;
+    height: 2px;
     width: 100%;
     background: white;
-    border-radius: 2px;
+    border-radius: 1px;
     transition: all 0.3s ease;
 }
 
 .burger-menu.active span:nth-child(1) {
-    transform: rotate(45deg) translate(6px, 6px);
+    transform: rotate(45deg) translate(5px, 5px);
 }
 
 .burger-menu.active span:nth-child(2) {
@@ -95,7 +95,7 @@ body {
 }
 
 .burger-menu.active span:nth-child(3) {
-    transform: rotate(-45deg) translate(6px, -6px);
+    transform: rotate(-45deg) translate(5px, -5px);
 }
 
 /* Dropdown Menu */
